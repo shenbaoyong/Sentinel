@@ -16,10 +16,15 @@
 package com.alibaba.csp.sentinel.annotation.aspectj.integration.config;
 
 import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
+import com.alibaba.csp.sentinel.annotation.aspectj.integration.service.UserClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 /**
  * @author Eric Zhao
@@ -32,5 +37,22 @@ public class AopTestConfig {
     @Bean
     public SentinelResourceAspect sentinelResourceAspect() {
         return new SentinelResourceAspect();
+    }
+
+    @Bean
+    public UserClient userClient(){
+
+        return (UserClient) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{UserClient.class}, new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+
+                if(args != null && args.length == 1 && (int)args[0] == 5758 && !method.getName().equals("getUserNameFallBack")){
+                    throw new IllegalArgumentException("oops");
+                }
+
+                return method.getName() + "_" + (args != null && args.length == 1 ? args[0] : "");
+            }
+        });
+
     }
 }

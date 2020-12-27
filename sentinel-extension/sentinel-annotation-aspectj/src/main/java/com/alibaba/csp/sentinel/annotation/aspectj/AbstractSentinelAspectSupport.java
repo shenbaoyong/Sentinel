@@ -24,6 +24,7 @@ import com.alibaba.csp.sentinel.util.StringUtil;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -187,7 +188,7 @@ public abstract class AbstractSentinelAspectSupport {
     private Method extractDefaultFallbackMethod(ProceedingJoinPoint pjp, String defaultFallback,
                                                 Class<?>[] locationClass) {
         if (StringUtil.isBlank(defaultFallback)) {
-            SentinelResource annotationClass = pjp.getTarget().getClass().getAnnotation(SentinelResource.class);
+            SentinelResource annotationClass = resolveAnnotationFromClass(pjp.getTarget().getClass(), SentinelResource.class);
             if (annotationClass != null && StringUtil.isNotBlank(annotationClass.defaultFallback())) {
                 defaultFallback = annotationClass.defaultFallback();
                 if (locationClass == null || locationClass.length < 1) {
@@ -319,6 +320,87 @@ public abstract class AbstractSentinelAspectSupport {
             throw new IllegalStateException("Cannot resolve target method: " + signature.getMethod().getName());
         }
         return method;
+    }
+
+    protected <A extends Annotation> AnnotationMethodHolder<A> resolveAnnotationFromMethod(ProceedingJoinPoint joinPoint, Class<A> annotationType) {
+        MethodSignature signature = (MethodSignature)joinPoint.getSignature();
+        Class<?> targetClass = joinPoint.getTarget().getClass();
+
+        AnnotationMethodHolder<A> holder = getAnnotationFromDeclaredMethod(targetClass, annotationType, signature.getName(), signature.getMethod().getParameterTypes());
+        if (holder == null) {
+            throw new IllegalStateException("Cannot resolve annotation : " + annotationType.getName());
+        }
+        return holder;
+    }
+
+    protected <A extends Annotation> A resolveAnnotationFromClass(Class clazz, Class<A> annotationType) {
+        A a = (A) clazz.getAnnotation(annotationType);
+        if(a != null){
+            return a;
+        }
+        Class superclass = clazz.getSuperclass();
+        if(superclass != null && superclass != Object.class){
+            a = resolveAnnotationFromClass(superclass, annotationType);
+            if(a != null){
+                return a;
+            }
+        }
+        Class[] interfaces = clazz.getInterfaces();
+        for (Class itemInterface : interfaces) {
+            a = resolveAnnotationFromClass(itemInterface, annotationType);
+            if(a != null){
+                return a;
+            }
+        }
+
+        return a;
+    }
+
+    protected <A extends Annotation> AnnotationMethodHolder<A> getAnnotationFromDeclaredMethod(Class<?> clazz, Class<A> annotationType, String name, Class<?>... parameterTypes) {
+        try {
+            Method m = clazz.getDeclaredMethod(name, parameterTypes);
+            A a = m.getAnnotation(annotationType);
+            if(a != null){
+                return new AnnotationMethodHolder(a, m);
+            }
+            AnnotationMethodHolder<A> holder;
+            Class<?> superClass = clazz.getSuperclass();
+            if (superClass != null && superClass != Object.class) {
+                holder = getAnnotationFromDeclaredMethod(superClass, annotationType, name, parameterTypes);
+                if(holder != null){
+                    return holder;
+                }
+            }
+            Class<?>[] interfaces = clazz.getInterfaces();
+            if(interfaces != null){
+                for (Class<?> itemInterface : interfaces) {
+                    holder = getAnnotationFromDeclaredMethod(itemInterface, annotationType, name, parameterTypes);
+                    if(holder != null){
+                        return holder;
+                    }
+                }
+            }
+        } catch (NoSuchMethodException e) {
+            AnnotationMethodHolder holder = null;
+            Class<?> superClass = clazz.getSuperclass();
+            if (superClass != null) {
+                holder = getAnnotationFromDeclaredMethod(superClass, annotationType, name, parameterTypes);
+                if(holder != null){
+                    return holder;
+                }
+            }
+            Class<?>[] interfaces = clazz.getInterfaces();
+            if(interfaces != null){
+                for (Class<?> itemInterface : interfaces) {
+                    holder = getAnnotationFromDeclaredMethod(itemInterface, annotationType, name, parameterTypes);
+                    if(holder != null){
+                        return holder;
+                    }
+                }
+            }
+            return holder;
+        }
+        return null;
     }
 
     /**

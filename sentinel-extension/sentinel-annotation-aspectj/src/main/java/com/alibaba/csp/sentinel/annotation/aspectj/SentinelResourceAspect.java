@@ -41,13 +41,17 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
 
     @Around("sentinelResourceAnnotationPointcut()")
     public Object invokeResourceWithSentinel(ProceedingJoinPoint pjp) throws Throwable {
-        Method originMethod = resolveMethod(pjp);
 
-        SentinelResource annotation = originMethod.getAnnotation(SentinelResource.class);
-        if (annotation == null) {
+        AnnotationMethodHolder<SentinelResource> holder = resolveAnnotationFromMethod(pjp, SentinelResource.class);
+
+        if (holder == null) {
             // Should not go through here.
             throw new IllegalStateException("Wrong state for SentinelResource annotation");
         }
+
+        SentinelResource annotation = holder.getSentinelResource();
+        Method originMethod = holder.getMethod();
+
         String resourceName = getResourceName(annotation.value(), originMethod);
         EntryType entryType = annotation.entryType();
         int resourceType = annotation.resourceType();

@@ -19,6 +19,7 @@ import com.alibaba.csp.sentinel.annotation.aspectj.integration.config.AopTestCon
 import com.alibaba.csp.sentinel.annotation.aspectj.integration.service.BarService;
 import com.alibaba.csp.sentinel.annotation.aspectj.integration.service.FooService;
 import com.alibaba.csp.sentinel.annotation.aspectj.integration.service.FooUtil;
+import com.alibaba.csp.sentinel.annotation.aspectj.integration.service.UserClient;
 import com.alibaba.csp.sentinel.node.ClusterNode;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
@@ -51,6 +52,8 @@ public class SentinelAnnotationIntegrationTest extends AbstractJUnit4SpringConte
     private FooService fooService;
     @Autowired
     private BarService barService;
+    @Autowired
+    private UserClient userClient;
 
     @Test
     public void testProxySuccessful() {
@@ -206,6 +209,35 @@ public class SentinelAnnotationIntegrationTest extends AbstractJUnit4SpringConte
         assertThat(barService.doSomething(5758)).isEqualTo("GlobalFallback:doFallback");
         assertThat(cn1.exceptionQps()).isPositive();
         assertThat(cn1.blockQps()).isZero();
+    }
+
+    @Test
+    public void testA() {
+
+        assertThat(AopUtils.isAopProxy(userClient)).isTrue();
+
+        assertThat(userClient.getUserName1(7)).isEqualTo("getUserName1_7");
+        String resourceName1 = "com.alibaba.csp.sentinel.annotation.aspectj.integration.service.UserClient:getUserName1(int)";
+        ClusterNode cn1 = ClusterBuilderSlot.getClusterNode(resourceName1);
+        assertThat(cn1).isNotNull();
+        assertThat(cn1.passQps()).isPositive();
+        assertThat(cn1.exceptionQps()).isZero();
+
+        assertThat(userClient.getUserName2(7)).isEqualTo("getUserName2_7");
+        String resourceName2 = "com.alibaba.csp.sentinel.annotation.aspectj.integration.service.UserClient:getUserName2(int)";
+        ClusterNode cn2 = ClusterBuilderSlot.getClusterNode(resourceName2);
+        assertThat(cn2).isNotNull();
+        assertThat(cn2.passQps()).isPositive();
+        assertThat(cn2.exceptionQps()).isZero();
+
+        assertThat(userClient.getUserName1(5758)).isEqualTo(FooUtil.FALLBACK_DEFAULT_RESULT);
+        assertThat(cn1.exceptionQps()).isPositive();
+        assertThat(cn2.exceptionQps()).isZero();
+
+        assertThat(userClient.getUserName2(5758)).isEqualTo("getUserNameFallBack_5758");
+        assertThat(cn1.exceptionQps()).isPositive();
+        assertThat(cn2.exceptionQps()).isPositive();
+
     }
 
     @Before
