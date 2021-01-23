@@ -1,0 +1,9 @@
+<aspectj>
+    <weaver>
+        <include within="com.alibaba.csp.sentinel.demo.annotation.nativeaspectj.pkga.*"/>
+        <include within="com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect"/>
+    </weaver>
+    <aspects>
+        <aspect name="com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect"/>
+    </aspects>
+</aspectj>
